@@ -17,6 +17,7 @@ If an LLM creating software upsets you, then perhaps this repo isn't for you. Mo
 - **Terrain detection** — automatically selects Ground, Water Surface, Underwater, or Airborne mounts based on your position
 - **Cooldown fallback** — if your preferred mount (Warclaw, Skyscale) is on cooldown, it tries a backup
 - **Airborne fallback** — without RTAPI, detects being airborne by trying a ground mount first; if it fails, tries your flying mount
+- **Bump tolerance** — before triggering the airborne fallback, checks if your Y position has barely changed since the key press; if so, assumes you've just hopped over a terrain bump and retries the ground mount instead. Threshold is adjustable in the options panel
 - **Configurable retry delay** — increase if you're on a high-latency connection
 
 ## Setup
