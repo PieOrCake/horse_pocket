@@ -3,6 +3,7 @@
 #include "globals.h"
 #include <chrono>
 #include <windows.h>
+#include <cstring>
 
 static CRITICAL_SECTION s_cs;
 
@@ -41,24 +42,36 @@ static bool NeedsCooldownCheck(const std::string& name) {
     return name == "Warclaw" || name == "Skyscale";
 }
 
+// Appends a mount + optional cooldown-fallback to the queue. Returns new size.
+static int AppendToQueue(EGameBinds* queue, int size, const std::string& mountName,
+                         const std::string& fallbackName) {
+    const MountInfo* m = Mount_FindByName(mountName);
+    if (!m || size >= 4) return size;
+    queue[size++] = m->gameBind;
+
+    if (NeedsCooldownCheck(mountName) && !fallbackName.empty()) {
+        const MountInfo* fb = Mount_FindByName(fallbackName);
+        if (fb && size < 4) queue[size++] = fb->gameBind;
+    }
+    return size;
+}
+
 void Mount_OnKeybind() {
     if (!g_MumbleLink) return;
 
     // Dismount if already mounted
     if (g_MumbleLink->Context.MountIndex != Mumble::EMountIndex::None) {
-        APIDefs->GameBinds.PressAsync(EGameBinds_SpumoniToggle);
-        APIDefs->GameBinds.ReleaseAsync(EGameBinds_SpumoniToggle);
+        PressMount(EGameBinds_SpumoniToggle);
         return;
     }
 
-    // Primary: derive terrain from MumbleLink Y position
-    // Thresholds match GW2Radial's StateObserver
-    float y = g_MumbleLink->AvatarPosition.Y;
-    bool isUnderwater   = (y < -1.2f);
-    bool isWaterSurface = (y >= -1.2f && y <= -1.0f);
-    bool isAirborne     = false;
+    // Primary terrain detection: MumbleLink Y position
+    float y             = g_MumbleLink->AvatarPosition.Y;
+    bool  isUnderwater  = (y < -1.2f);
+    bool  isWaterSurface = (y >= -1.2f && y <= -1.0f);
+    bool  isAirborne    = false;
 
-    // RTAPI overrides when available (more accurate, includes airborne detection)
+    // RTAPI override when available (adds accurate airborne detection)
     auto* rtapi = g_RTAPI.load();
     if (rtapi && rtapi->GameBuild != 0) {
         auto state      = static_cast<uint32_t>(rtapi->CharacterState);
@@ -74,6 +87,7 @@ void Mount_OnKeybind() {
     // Select scenario
     const std::string* mountName    = nullptr;
     const std::string* fallbackName = nullptr;
+    bool isGroundScenario = false;
 
     if (isAirborne) {
         mountName    = &g_Config.mountAirborne;
@@ -85,25 +99,40 @@ void Mount_OnKeybind() {
         mountName    = &g_Config.mountWaterSurface;
         fallbackName = &g_Config.fallbackWaterSurface;
     } else {
-        mountName    = &g_Config.mountGround;
-        fallbackName = &g_Config.fallbackGround;
+        mountName       = &g_Config.mountGround;
+        fallbackName    = &g_Config.fallbackGround;
+        isGroundScenario = true;
     }
 
-    const MountInfo* mount = Mount_FindByName(*mountName);
-    if (!mount) return;
+    // Build the fallback queue:
+    //   [terrain mount] → [terrain cooldown fallback?]
+    //   → [airborne mount?] → [airborne cooldown fallback?]   (ground scenario only)
+    EGameBinds queue[4] = {};
+    int queueSize = 0;
 
-    PressMount(mount->gameBind);
+    queueSize = AppendToQueue(queue, queueSize, *mountName, *fallbackName);
 
-    if (NeedsCooldownCheck(*mountName) && fallbackName && !fallbackName->empty()) {
-        const MountInfo* fallback = Mount_FindByName(*fallbackName);
-        if (fallback) {
-            EnterCriticalSection(&s_cs);
-            g_CooldownCheck.active        = true;
-            g_CooldownCheck.expectedMount = static_cast<uint32_t>(mount->mountIndex);
-            g_CooldownCheck.fallbackBind  = fallback->gameBind;
-            g_CooldownCheck.startTime     = std::chrono::steady_clock::now();
-            LeaveCriticalSection(&s_cs);
-        }
+    // Airborne mount appended as last resort only for ground scenario and only when
+    // RTAPI is not available (if RTAPI is available, airborne is already detected above)
+    if (isGroundScenario && !isAirborne && (!rtapi || rtapi->GameBuild == 0)) {
+        queueSize = AppendToQueue(queue, queueSize,
+                                  g_Config.mountAirborne, g_Config.fallbackAirborne);
+    }
+
+    if (queueSize == 0) return;
+
+    // Press the first mount immediately
+    PressMount(queue[0]);
+
+    // Arm the sequence checker if there are fallbacks to try
+    if (queueSize > 1) {
+        EnterCriticalSection(&s_cs);
+        g_CooldownCheck.active     = true;
+        memcpy(g_CooldownCheck.queue, queue, queueSize * sizeof(EGameBinds));
+        g_CooldownCheck.queueSize  = queueSize;
+        g_CooldownCheck.currentIdx = 0;
+        g_CooldownCheck.startTime  = std::chrono::steady_clock::now();
+        LeaveCriticalSection(&s_cs);
     }
 }
 
@@ -118,18 +147,31 @@ void Mount_FrameTick() {
         LeaveCriticalSection(&s_cs);
         return;
     }
-    // RTAPI and Mumble both source MountIndex from the GW2 Mumble link — values match
-    uint32_t curMount = static_cast<uint32_t>(g_MumbleLink->Context.MountIndex);
-    if (curMount == g_CooldownCheck.expectedMount) {
+
+    // Any mount activated → done
+    if (g_MumbleLink->Context.MountIndex != Mumble::EMountIndex::None) {
         g_CooldownCheck.active = false;
         LeaveCriticalSection(&s_cs);
         return;
     }
-    auto elapsed  = std::chrono::steady_clock::now() - g_CooldownCheck.startTime;
-    EGameBinds fb = g_CooldownCheck.fallbackBind;
-    bool fire     = (elapsed >= std::chrono::milliseconds(300));
-    if (fire) g_CooldownCheck.active = false;
+
+    auto elapsed = std::chrono::steady_clock::now() - g_CooldownCheck.startTime;
+    if (elapsed < std::chrono::milliseconds(g_Config.retryDelayMs)) {
+        LeaveCriticalSection(&s_cs);
+        return;
+    }
+
+    // Timer expired — advance to next mount in queue
+    g_CooldownCheck.currentIdx++;
+    if (g_CooldownCheck.currentIdx >= g_CooldownCheck.queueSize) {
+        g_CooldownCheck.active = false;
+        LeaveCriticalSection(&s_cs);
+        return;
+    }
+
+    EGameBinds nextBind       = g_CooldownCheck.queue[g_CooldownCheck.currentIdx];
+    g_CooldownCheck.startTime = std::chrono::steady_clock::now();
     LeaveCriticalSection(&s_cs);
 
-    if (fire) PressMount(fb);
+    PressMount(nextBind);
 }

@@ -11,10 +11,12 @@ extern AddonAPI*                          APIDefs;
 extern Mumble::Data*                      g_MumbleLink;
 extern std::atomic<RTAPI::RealTimeData*>  g_RTAPI;
 
+// Queue of mount binds to try in sequence until one activates
 struct CooldownCheck {
-    bool        active        = false;
-    uint32_t    expectedMount = 0;        // Mumble EMountIndex value cast to uint32_t
-    EGameBinds  fallbackBind  = EGameBinds_SpumoniMAM01;
+    bool       active     = false;
+    EGameBinds queue[4]   = {};
+    int        queueSize  = 0;
+    int        currentIdx = 0;
     std::chrono::steady_clock::time_point startTime;
 };
 extern CooldownCheck g_CooldownCheck;

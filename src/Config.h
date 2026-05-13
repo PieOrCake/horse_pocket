@@ -10,6 +10,7 @@ struct Config {
     std::string fallbackWaterSurface;
     std::string fallbackUnderwater;
     std::string fallbackAirborne;
+    int         retryDelayMs        = 300;
 };
 
 extern Config g_Config;

@@ -22,6 +22,7 @@ void Config_Save() {
     j["fallback_water_surface"] = g_Config.fallbackWaterSurface;
     j["fallback_underwater"]    = g_Config.fallbackUnderwater;
     j["fallback_airborne"]      = g_Config.fallbackAirborne;
+    j["retry_delay_ms"]         = g_Config.retryDelayMs;
     std::ofstream f(ConfigPath());
     if (f.is_open()) f << j.dump(2);
 }
@@ -39,5 +40,6 @@ void Config_Load() {
         if (j.contains("fallback_water_surface")) g_Config.fallbackWaterSurface = j["fallback_water_surface"].get<std::string>();
         if (j.contains("fallback_underwater"))    g_Config.fallbackUnderwater   = j["fallback_underwater"].get<std::string>();
         if (j.contains("fallback_airborne"))      g_Config.fallbackAirborne     = j["fallback_airborne"].get<std::string>();
+        if (j.contains("retry_delay_ms"))         g_Config.retryDelayMs         = j["retry_delay_ms"].get<int>();
     } catch (...) {}
 }

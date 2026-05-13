@@ -60,6 +60,8 @@ static bool RenderScenarioRow(const char* label, const char** list, int count,
 }
 
 void Settings_Render() {
+    bool changed = false;
+
     ImGui::TextDisabled("Keybind");
     ImGui::Separator();
     ImGui::Text("Smart Mount");
@@ -69,10 +71,19 @@ void Settings_Render() {
     ImGui::TextDisabled("Use the same key as your GW2 Mount/Dismount for a transparent override.");
     ImGui::Spacing();
 
+    ImGui::TextDisabled("Timing");
+    ImGui::Separator();
+    ImGui::SetNextItemWidth(200.0f);
+    if (ImGui::SliderInt("Retry delay (ms)##hp", &g_Config.retryDelayMs, 100, 2000)) {
+        changed = true;
+    }
+    ImGui::TextDisabled("How long to wait before trying the next mount if the first fails.");
+    ImGui::TextDisabled("Increase if you have high latency (e.g. Australian players on US servers).");
+    ImGui::Spacing();
+
     ImGui::TextDisabled("Mount Selection");
     ImGui::Separator();
 
-    bool changed = false;
     changed |= RenderScenarioRow("Ground##hp",        MOUNTS_GROUND,        COUNT_GROUND,        g_Config.mountGround,        g_Config.fallbackGround);
     changed |= RenderScenarioRow("Water Surface##hp", MOUNTS_WATER_SURFACE, COUNT_WATER_SURFACE, g_Config.mountWaterSurface,  g_Config.fallbackWaterSurface);
     changed |= RenderScenarioRow("Underwater##hp",    MOUNTS_UNDERWATER,    COUNT_UNDERWATER,    g_Config.mountUnderwater,    g_Config.fallbackUnderwater);
