@@ -1,0 +1,8 @@
+build/
+*.dll
+*.a
+*.lib
+CLAUDE.md
+handover.md
+plans/
+docs/
