@@ -7,7 +7,7 @@
 #include <cstring>
 
 AddonAPI_t*          APIDefs        = nullptr;
-RTAPI::RealTimeData* g_RTAPI        = nullptr;
+std::atomic<RTAPI::RealTimeData*> g_RTAPI = nullptr;
 CooldownCheck        g_CooldownCheck{};
 
 static AddonDefinition_t AddonDef{};
@@ -28,13 +28,13 @@ static void OnOptionsRender() {
 static void OnAddonLoaded(void* aEventArgs) {
     if (!aEventArgs) return;
     if (*static_cast<uint32_t*>(aEventArgs) == RTAPI_SIG)
-        g_RTAPI = static_cast<RTAPI::RealTimeData*>(APIDefs->DataLink_Get(DL_RTAPI));
+        g_RTAPI.store(static_cast<RTAPI::RealTimeData*>(APIDefs->DataLink_Get(DL_RTAPI)));
 }
 
 static void OnAddonUnloaded(void* aEventArgs) {
     if (!aEventArgs) return;
     if (*static_cast<uint32_t*>(aEventArgs) == RTAPI_SIG)
-        g_RTAPI = nullptr;
+        g_RTAPI.store(nullptr);
 }
 
 void AddonLoad(AddonAPI_t* aApi) {
@@ -45,7 +45,7 @@ void AddonLoad(AddonAPI_t* aApi) {
         (void(*)(void*, void*))APIDefs->ImguiFree
     );
 
-    g_RTAPI = static_cast<RTAPI::RealTimeData*>(APIDefs->DataLink_Get(DL_RTAPI));
+    g_RTAPI.store(static_cast<RTAPI::RealTimeData*>(APIDefs->DataLink_Get(DL_RTAPI)));
 
     APIDefs->Events_Subscribe(EV_ADDON_LOADED,   OnAddonLoaded);
     APIDefs->Events_Subscribe(EV_ADDON_UNLOADED, OnAddonUnloaded);

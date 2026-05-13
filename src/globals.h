@@ -1,12 +1,13 @@
 #pragma once
 #include <windows.h>
+#include <atomic>
 #include <chrono>
 #include <cstdint>
 #include "nexus/Nexus.h"
 #include "RTAPI.hpp"
 
-extern AddonAPI_t*          APIDefs;
-extern RTAPI::RealTimeData* g_RTAPI;
+extern AddonAPI_t*                        APIDefs;
+extern std::atomic<RTAPI::RealTimeData*>  g_RTAPI;
 
 struct CooldownCheck {
     bool        active        = false;

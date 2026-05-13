@@ -42,21 +42,22 @@ static bool NeedsCooldownCheck(const std::string& name) {
 }
 
 void Mount_OnKeybind() {
-    if (!g_RTAPI || g_RTAPI->GameBuild == 0) {
+    auto* rtapi = g_RTAPI.load();
+    if (!rtapi || rtapi->GameBuild == 0) {
         APIDefs->GUI_SendAlert("Horse Pocket: RTAPI not installed");
         return;
     }
-    if (g_RTAPI->GameState != RTAPI::EGameState::Gameplay) return;
+    if (rtapi->GameState != RTAPI::EGameState::Gameplay) return;
 
     // Dismount if already mounted
-    if (g_RTAPI->MountIndex != 0) {
+    if (rtapi->MountIndex != 0) {
         APIDefs->GameBinds_PressAsync(GB_SpumoniToggle);
         APIDefs->GameBinds_ReleaseAsync(GB_SpumoniToggle);
         return;
     }
 
     // Determine terrain from CharacterState bitmask
-    auto state = static_cast<uint32_t>(g_RTAPI->CharacterState);
+    auto state = static_cast<uint32_t>(rtapi->CharacterState);
     const std::string* mountName    = nullptr;
     const std::string* fallbackName = nullptr;
 
@@ -103,13 +104,14 @@ void Mount_FrameTick() {
         LeaveCriticalSection(&s_cs);
         return;
     }
-    if (!g_RTAPI || g_RTAPI->GameBuild == 0) {
+    auto* rtapi = g_RTAPI.load();
+    if (!rtapi || rtapi->GameBuild == 0) {
         g_CooldownCheck.active = false;
         LeaveCriticalSection(&s_cs);
         return;
     }
     // RTAPI and Mumble both source MountIndex from the GW2 Mumble link — values match
-    if (g_RTAPI->MountIndex == g_CooldownCheck.expectedMount) {
+    if (rtapi->MountIndex == g_CooldownCheck.expectedMount) {
         g_CooldownCheck.active = false;
         LeaveCriticalSection(&s_cs);
         return;
