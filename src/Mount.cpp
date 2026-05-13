@@ -122,12 +122,26 @@ void Mount_OnKeybind() {
 
     // Arm the sequence checker if there are fallbacks to try
     if (queueSize > 1) {
+        const MountInfo* gm = Mount_FindByName(*mountName);
+        int airborneStart = -1;
+        EGameBinds groundBind = {};
+        if (isGroundScenario && (!rtapi || rtapi->GameBuild == 0)) {
+            // The airborne entries start right after the ground mount (and its optional fallback)
+            int groundEntries = 1 + (Mount_NeedsCooldownFallback(*mountName) && !fallbackName->empty() ? 1 : 0);
+            if (groundEntries < queueSize) {
+                airborneStart = groundEntries;
+                groundBind = gm ? gm->gameBind : queue[0];
+            }
+        }
         EnterCriticalSection(&s_cs);
-        g_CooldownCheck.active     = true;
+        g_CooldownCheck.active           = true;
         memcpy(g_CooldownCheck.queue, queue, queueSize * sizeof(EGameBinds));
-        g_CooldownCheck.queueSize  = queueSize;
-        g_CooldownCheck.currentIdx = 0;
-        g_CooldownCheck.startTime  = std::chrono::steady_clock::now();
+        g_CooldownCheck.queueSize        = queueSize;
+        g_CooldownCheck.currentIdx       = 0;
+        g_CooldownCheck.startTime        = std::chrono::steady_clock::now();
+        g_CooldownCheck.airborneStartIdx = airborneStart;
+        g_CooldownCheck.groundBind       = groundBind;
+        g_CooldownCheck.startY           = y;
         LeaveCriticalSection(&s_cs);
     }
 }
@@ -166,8 +180,27 @@ void Mount_FrameTick() {
     }
 
     EGameBinds nextBind       = g_CooldownCheck.queue[g_CooldownCheck.currentIdx];
+    bool revertToGround       = false;
+    EGameBinds groundBind     = g_CooldownCheck.groundBind;
+
+    // If we've reached the airborne fallback entries, compare current Y to the Y at
+    // key press time. If the delta is within the configured bump threshold, the player
+    // likely crossed a small terrain bump and returned to ground — retry ground mount.
+    if (g_CooldownCheck.airborneStartIdx >= 0 &&
+        g_CooldownCheck.currentIdx >= g_CooldownCheck.airborneStartIdx) {
+        float delta = g_MumbleLink->AvatarPosition.Y - g_CooldownCheck.startY;
+        if (delta < 0.0f) delta = -delta;
+        if (delta < g_Config.bumpThreshold) {
+            revertToGround = true;
+            g_CooldownCheck.airborneStartIdx = -1;
+        }
+    }
+
     g_CooldownCheck.startTime = std::chrono::steady_clock::now();
     LeaveCriticalSection(&s_cs);
 
-    PressMount(nextBind);
+    if (revertToGround)
+        PressMount(groundBind);
+    else
+        PressMount(nextBind);
 }

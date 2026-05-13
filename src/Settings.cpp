@@ -81,6 +81,14 @@ void Settings_Render() {
     ImGui::TextDisabled("Increase only if mounts fail to activate reliably.");
     ImGui::Spacing();
 
+    ImGui::SetNextItemWidth(200.0f);
+    if (ImGui::SliderFloat("Bump tolerance##hp", &g_Config.bumpThreshold, 0.0f, 2.0f, "%.2f")) {
+        changed = true;
+    }
+    ImGui::TextDisabled("Y-position change allowed before flying mount is used instead of retrying ground.");
+    ImGui::TextDisabled("Lower = only retry ground after tiny bumps. Higher = retry ground after larger jumps.");
+    ImGui::Spacing();
+
     ImGui::TextDisabled("Mount Selection");
     ImGui::Separator();
 

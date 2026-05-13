@@ -11,6 +11,7 @@ struct Config {
     std::string fallbackUnderwater;
     std::string fallbackAirborne;
     int         retryDelayMs        = 100;
+    float       bumpThreshold       = 0.12f;
 };
 
 extern Config g_Config;

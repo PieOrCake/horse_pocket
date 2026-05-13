@@ -4,7 +4,9 @@ A [Nexus](https://raidcore.gg/Nexus) addon for Guild Wars 2 that replaces your m
 
 ## AI Notice
 
-This addon was largely created using Claude. I understand that some folks have a moral, financial or political objection to creating software using an LLM. I just wanted to make a useful tool for the GW2 community, and this was the only way I could do it.
+This addon has been largely created using Claude. I understand that some folks have a moral, financial or political objection to creating software using an LLM. I just wanted to make a useful tool for the GW2 community, and this was the only way I could do it.
+
+If an LLM creating software upsets you, then perhaps this repo isn't for you. Move on, and enjoy your day.
 
 ## Screenshot
 

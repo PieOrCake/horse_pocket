@@ -23,6 +23,7 @@ void Config_Save() {
     j["fallback_underwater"]    = g_Config.fallbackUnderwater;
     j["fallback_airborne"]      = g_Config.fallbackAirborne;
     j["retry_delay_ms"]         = g_Config.retryDelayMs;
+    j["bump_threshold"]         = g_Config.bumpThreshold;
     std::ofstream f(path);
     if (f.is_open()) f << j.dump(2);
 }
@@ -41,6 +42,7 @@ void Config_Load() {
         if (j.contains("fallback_underwater"))    g_Config.fallbackUnderwater   = j["fallback_underwater"].get<std::string>();
         if (j.contains("fallback_airborne"))      g_Config.fallbackAirborne     = j["fallback_airborne"].get<std::string>();
         if (j.contains("retry_delay_ms"))         g_Config.retryDelayMs         = j["retry_delay_ms"].get<int>();
+        if (j.contains("bump_threshold"))         g_Config.bumpThreshold        = j["bump_threshold"].get<float>();
     } catch (...) {
         APIDefs->Log(ELogLevel_WARNING, "HorsePocket", "Failed to parse config.json; using defaults");
     }
