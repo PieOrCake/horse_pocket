@@ -1,1 +1,43 @@
 #include "Config.h"
+#include "globals.h"
+#include <fstream>
+#include <filesystem>
+#include <nlohmann/json.hpp>
+
+Config g_Config;
+
+static std::string ConfigPath() {
+    return std::string(APIDefs->Paths_GetAddonDirectory("horse_pocket")) + "/config.json";
+}
+
+void Config_Save() {
+    std::string dir = APIDefs->Paths_GetAddonDirectory("horse_pocket");
+    std::filesystem::create_directories(dir);
+    nlohmann::json j;
+    j["mount_ground"]           = g_Config.mountGround;
+    j["mount_water_surface"]    = g_Config.mountWaterSurface;
+    j["mount_underwater"]       = g_Config.mountUnderwater;
+    j["mount_airborne"]         = g_Config.mountAirborne;
+    j["fallback_ground"]        = g_Config.fallbackGround;
+    j["fallback_water_surface"] = g_Config.fallbackWaterSurface;
+    j["fallback_underwater"]    = g_Config.fallbackUnderwater;
+    j["fallback_airborne"]      = g_Config.fallbackAirborne;
+    std::ofstream f(ConfigPath());
+    if (f.is_open()) f << j.dump(2);
+}
+
+void Config_Load() {
+    std::ifstream f(ConfigPath());
+    if (!f.is_open()) return;
+    try {
+        auto j = nlohmann::json::parse(f);
+        if (j.contains("mount_ground"))           g_Config.mountGround          = j["mount_ground"].get<std::string>();
+        if (j.contains("mount_water_surface"))    g_Config.mountWaterSurface    = j["mount_water_surface"].get<std::string>();
+        if (j.contains("mount_underwater"))       g_Config.mountUnderwater      = j["mount_underwater"].get<std::string>();
+        if (j.contains("mount_airborne"))         g_Config.mountAirborne        = j["mount_airborne"].get<std::string>();
+        if (j.contains("fallback_ground"))        g_Config.fallbackGround       = j["fallback_ground"].get<std::string>();
+        if (j.contains("fallback_water_surface")) g_Config.fallbackWaterSurface = j["fallback_water_surface"].get<std::string>();
+        if (j.contains("fallback_underwater"))    g_Config.fallbackUnderwater   = j["fallback_underwater"].get<std::string>();
+        if (j.contains("fallback_airborne"))      g_Config.fallbackAirborne     = j["fallback_airborne"].get<std::string>();
+    } catch (...) {}
+}
