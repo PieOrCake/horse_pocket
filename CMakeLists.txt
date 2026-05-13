@@ -42,7 +42,7 @@ set(SOURCES
 )
 
 add_library(HorsePocket SHARED ${SOURCES})
-set_target_properties(HorsePocket PROPERTIES SUFFIX ".dll")
+set_target_properties(HorsePocket PROPERTIES PREFIX "" SUFFIX ".dll")
 
 target_link_libraries(HorsePocket gdi32 wininet)
 target_link_options(HorsePocket PRIVATE -Wl,--out-implib,HorsePocket.lib -Wl,--strip-all)
