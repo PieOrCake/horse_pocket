@@ -38,10 +38,6 @@ static void PressMount(EGameBinds bind) {
     APIDefs->GameBinds.ReleaseAsync(bind);
 }
 
-static bool NeedsCooldownCheck(const std::string& name) {
-    return name == "Warclaw" || name == "Skyscale";
-}
-
 // Appends a mount + optional cooldown-fallback to the queue. Returns new size.
 static int AppendToQueue(EGameBinds* queue, int size, const std::string& mountName,
                          const std::string& fallbackName) {
@@ -49,7 +45,7 @@ static int AppendToQueue(EGameBinds* queue, int size, const std::string& mountNa
     if (!m || size >= 4) return size;
     queue[size++] = m->gameBind;
 
-    if (NeedsCooldownCheck(mountName) && !fallbackName.empty()) {
+    if (Mount_NeedsCooldownFallback(mountName) && !fallbackName.empty()) {
         const MountInfo* fb = Mount_FindByName(fallbackName);
         if (fb && size < 4) queue[size++] = fb->gameBind;
     }
@@ -114,7 +110,7 @@ void Mount_OnKeybind() {
 
     // Airborne mount appended as last resort only for ground scenario and only when
     // RTAPI is not available (if RTAPI is available, airborne is already detected above)
-    if (isGroundScenario && !isAirborne && (!rtapi || rtapi->GameBuild == 0)) {
+    if (isGroundScenario && (!rtapi || rtapi->GameBuild == 0)) {
         queueSize = AppendToQueue(queue, queueSize,
                                   g_Config.mountAirborne, g_Config.fallbackAirborne);
     }

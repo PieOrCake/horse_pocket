@@ -14,6 +14,10 @@ extern const int       MOUNT_TABLE_SIZE;
 
 const MountInfo* Mount_FindByName(const std::string& name);
 
+inline bool Mount_NeedsCooldownFallback(const std::string& name) {
+    return name == "Warclaw" || name == "Skyscale";
+}
+
 // Called on keybind press (key-down only)
 void Mount_OnKeybind();
 
