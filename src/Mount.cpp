@@ -2,6 +2,14 @@
 #include "Config.h"
 #include "globals.h"
 #include <chrono>
+#include <windows.h>
+
+static CRITICAL_SECTION s_cs;
+
+static struct CsInit {
+    CsInit()  { InitializeCriticalSection(&s_cs); }
+    ~CsInit() { DeleteCriticalSection(&s_cs); }
+} s_csInit;
 
 const MountInfo MOUNT_TABLE[] = {
     { "Raptor",       GB_SpumoniMAM01,    Mumble::EMountIndex::Raptor       },
@@ -79,28 +87,38 @@ void Mount_OnKeybind() {
     if (NeedsCooldownCheck(*mountName) && fallbackName && !fallbackName->empty()) {
         const MountInfo* fallback = Mount_FindByName(*fallbackName);
         if (fallback) {
+            EnterCriticalSection(&s_cs);
             g_CooldownCheck.active        = true;
             g_CooldownCheck.expectedMount = static_cast<uint32_t>(mount->mountIndex);
             g_CooldownCheck.fallbackBind  = fallback->gameBind;
             g_CooldownCheck.startTime     = std::chrono::steady_clock::now();
+            LeaveCriticalSection(&s_cs);
         }
     }
 }
 
 void Mount_FrameTick() {
-    if (!g_CooldownCheck.active) return;
+    EnterCriticalSection(&s_cs);
+    if (!g_CooldownCheck.active) {
+        LeaveCriticalSection(&s_cs);
+        return;
+    }
     if (!g_RTAPI || g_RTAPI->GameBuild == 0) {
         g_CooldownCheck.active = false;
+        LeaveCriticalSection(&s_cs);
         return;
     }
-    // Mounted successfully — cancel
+    // RTAPI and Mumble both source MountIndex from the GW2 Mumble link — values match
     if (g_RTAPI->MountIndex == g_CooldownCheck.expectedMount) {
         g_CooldownCheck.active = false;
+        LeaveCriticalSection(&s_cs);
         return;
     }
-    auto elapsed = std::chrono::steady_clock::now() - g_CooldownCheck.startTime;
-    if (elapsed >= std::chrono::milliseconds(300)) {
-        PressMount(g_CooldownCheck.fallbackBind);
-        g_CooldownCheck.active = false;
-    }
+    auto elapsed  = std::chrono::steady_clock::now() - g_CooldownCheck.startTime;
+    EGameBinds fb = g_CooldownCheck.fallbackBind;
+    bool fire     = (elapsed >= std::chrono::milliseconds(300));
+    if (fire) g_CooldownCheck.active = false;
+    LeaveCriticalSection(&s_cs);
+
+    if (fire) PressMount(fb);
 }
