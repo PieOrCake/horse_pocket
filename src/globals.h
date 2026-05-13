@@ -4,9 +4,11 @@
 #include <chrono>
 #include <cstdint>
 #include "nexus/Nexus.h"
+#include "mumble/Mumble.h"
 #include "RTAPI.hpp"
 
 extern AddonAPI*                          APIDefs;
+extern Mumble::Data*                      g_MumbleLink;
 extern std::atomic<RTAPI::RealTimeData*>  g_RTAPI;
 
 struct CooldownCheck {

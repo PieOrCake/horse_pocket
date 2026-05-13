@@ -7,6 +7,7 @@
 #include <cstring>
 
 AddonAPI*                         APIDefs        = nullptr;
+Mumble::Data*                     g_MumbleLink   = nullptr;
 std::atomic<RTAPI::RealTimeData*> g_RTAPI        = nullptr;
 CooldownCheck                     g_CooldownCheck{};
 
@@ -18,12 +19,10 @@ static void OnKeybind(const char* aIdentifier, bool aIsRelease) {
 }
 
 static void OnRender() {
+    // Lazy-acquire RTAPI: it may share DataLink after we load
     if (!g_RTAPI.load()) {
         auto* p = static_cast<RTAPI::RealTimeData*>(APIDefs->DataLink.Get(DL_RTAPI));
-        if (p) {
-            g_RTAPI.store(p);
-            APIDefs->Log(ELogLevel_INFO, "HorsePocket", "RTAPI DataLink acquired on frame tick");
-        }
+        if (p && p->GameBuild != 0) g_RTAPI.store(p);
     }
     Mount_FrameTick();
 }
@@ -34,16 +33,9 @@ static void OnOptionsRender() {
 
 static void OnAddonLoaded(void* aEventArgs) {
     if (!aEventArgs) return;
-    uint32_t sig = *static_cast<uint32_t*>(aEventArgs);
-    char buf[64];
-    sprintf(buf, "OnAddonLoaded: sig=0x%08X (RTAPI_SIG=0x%08X)", sig, (uint32_t)RTAPI_SIG);
-    APIDefs->Log(ELogLevel_INFO, "HorsePocket", buf);
-    if (sig == (uint32_t)RTAPI_SIG) {
+    if (*static_cast<uint32_t*>(aEventArgs) == (uint32_t)RTAPI_SIG) {
         auto* p = static_cast<RTAPI::RealTimeData*>(APIDefs->DataLink.Get(DL_RTAPI));
-        g_RTAPI.store(p);
-        APIDefs->Log(ELogLevel_INFO, "HorsePocket", p
-            ? "OnAddonLoaded: RTAPI acquired"
-            : "OnAddonLoaded: DataLink.Get still returned null");
+        if (p && p->GameBuild != 0) g_RTAPI.store(p);
     }
 }
 
@@ -61,12 +53,10 @@ void AddonLoad(AddonAPI* aApi) {
         (void(*)(void*, void*))APIDefs->ImguiFree
     );
 
-    auto* rtapiAtLoad  = static_cast<RTAPI::RealTimeData*>(APIDefs->DataLink.Get(DL_RTAPI));
-    auto* mumbleAtLoad = APIDefs->DataLink.Get("DL_MUMBLE_LINK");
-    g_RTAPI.store(rtapiAtLoad);
-    char dlbuf[128];
-    sprintf(dlbuf, "AddonLoad: RTAPI=%p MumbleLink=%p", (void*)rtapiAtLoad, mumbleAtLoad);
-    APIDefs->Log(ELogLevel_INFO, "HorsePocket", dlbuf);
+    g_MumbleLink = static_cast<Mumble::Data*>(APIDefs->DataLink.Get("DL_MUMBLE_LINK"));
+
+    auto* rtapi = static_cast<RTAPI::RealTimeData*>(APIDefs->DataLink.Get(DL_RTAPI));
+    if (rtapi && rtapi->GameBuild != 0) g_RTAPI.store(rtapi);
 
     APIDefs->Events.Subscribe("EV_ADDON_LOADED",   OnAddonLoaded);
     APIDefs->Events.Subscribe("EV_ADDON_UNLOADED", OnAddonUnloaded);
@@ -96,7 +86,7 @@ extern "C" __declspec(dllexport) AddonDefinition* GetAddonDef() {
     AddonDef.Name        = "Horse Pocket";
     AddonDef.Version     = { 0, 1, 0, 0 };
     AddonDef.Author      = "PieOrCake.7635";
-    AddonDef.Description = "Smart mount selection based on terrain. Requires RTAPI.";
+    AddonDef.Description = "Smart mount selection based on terrain.";
     AddonDef.Load        = AddonLoad;
     AddonDef.Unload      = AddonUnload;
     AddonDef.Flags       = EAddonFlags_None;

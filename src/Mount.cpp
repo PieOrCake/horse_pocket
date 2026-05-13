@@ -42,40 +42,46 @@ static bool NeedsCooldownCheck(const std::string& name) {
 }
 
 void Mount_OnKeybind() {
-    auto* rtapi = g_RTAPI.load();
-    if (!rtapi || rtapi->GameBuild == 0) {
-        char buf[64];
-        sprintf(buf, "Keybind: rtapi=%p GameBuild=%u", (void*)rtapi, rtapi ? rtapi->GameBuild : 0u);
-        APIDefs->Log(ELogLevel_WARNING, "HorsePocket", buf);
-        APIDefs->UI.SendAlert("Horse Pocket: RTAPI not installed");
-        return;
-    }
-    if (rtapi->GameState != RTAPI::EGameState::Gameplay) return;
+    if (!g_MumbleLink) return;
 
     // Dismount if already mounted
-    if (rtapi->MountIndex != 0) {
+    if (g_MumbleLink->Context.MountIndex != Mumble::EMountIndex::None) {
         APIDefs->GameBinds.PressAsync(EGameBinds_SpumoniToggle);
         APIDefs->GameBinds.ReleaseAsync(EGameBinds_SpumoniToggle);
         return;
     }
 
-    // Determine terrain from CharacterState bitmask
-    auto state = static_cast<uint32_t>(rtapi->CharacterState);
+    // Primary: derive terrain from MumbleLink Y position
+    // Thresholds match GW2Radial's StateObserver
+    float y = g_MumbleLink->AvatarPosition.Y;
+    bool isUnderwater   = (y < -1.2f);
+    bool isWaterSurface = (y >= -1.2f && y <= -1.0f);
+    bool isAirborne     = false;
+
+    // RTAPI overrides when available (more accurate, includes airborne detection)
+    auto* rtapi = g_RTAPI.load();
+    if (rtapi && rtapi->GameBuild != 0) {
+        auto state      = static_cast<uint32_t>(rtapi->CharacterState);
+        auto flying     = static_cast<uint32_t>(RTAPI::ECharacterState::IsFlying);
+        auto gliding    = static_cast<uint32_t>(RTAPI::ECharacterState::IsGliding);
+        auto underwater = static_cast<uint32_t>(RTAPI::ECharacterState::IsUnderwater);
+        auto swimming   = static_cast<uint32_t>(RTAPI::ECharacterState::IsSwimming);
+        isUnderwater    = (state & underwater) != 0;
+        isWaterSurface  = (state & swimming)   != 0;
+        isAirborne      = ((state & flying) || (state & gliding)) != 0;
+    }
+
+    // Select scenario
     const std::string* mountName    = nullptr;
     const std::string* fallbackName = nullptr;
 
-    auto flying     = static_cast<uint32_t>(RTAPI::ECharacterState::IsFlying);
-    auto gliding    = static_cast<uint32_t>(RTAPI::ECharacterState::IsGliding);
-    auto underwater = static_cast<uint32_t>(RTAPI::ECharacterState::IsUnderwater);
-    auto swimming   = static_cast<uint32_t>(RTAPI::ECharacterState::IsSwimming);
-
-    if ((state & flying) || (state & gliding)) {
+    if (isAirborne) {
         mountName    = &g_Config.mountAirborne;
         fallbackName = &g_Config.fallbackAirborne;
-    } else if (state & underwater) {
+    } else if (isUnderwater) {
         mountName    = &g_Config.mountUnderwater;
         fallbackName = &g_Config.fallbackUnderwater;
-    } else if (state & swimming) {
+    } else if (isWaterSurface) {
         mountName    = &g_Config.mountWaterSurface;
         fallbackName = &g_Config.fallbackWaterSurface;
     } else {
@@ -107,14 +113,14 @@ void Mount_FrameTick() {
         LeaveCriticalSection(&s_cs);
         return;
     }
-    auto* rtapi = g_RTAPI.load();
-    if (!rtapi || rtapi->GameBuild == 0) {
+    if (!g_MumbleLink) {
         g_CooldownCheck.active = false;
         LeaveCriticalSection(&s_cs);
         return;
     }
     // RTAPI and Mumble both source MountIndex from the GW2 Mumble link — values match
-    if (rtapi->MountIndex == g_CooldownCheck.expectedMount) {
+    uint32_t curMount = static_cast<uint32_t>(g_MumbleLink->Context.MountIndex);
+    if (curMount == g_CooldownCheck.expectedMount) {
         g_CooldownCheck.active = false;
         LeaveCriticalSection(&s_cs);
         return;
