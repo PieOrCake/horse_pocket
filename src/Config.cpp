@@ -7,11 +7,11 @@
 Config g_Config;
 
 static std::string ConfigPath() {
-    return std::string(APIDefs->Paths_GetAddonDirectory("horse_pocket")) + "/config.json";
+    return std::string(APIDefs->Paths.GetAddonDirectory("horse_pocket")) + "/config.json";
 }
 
 void Config_Save() {
-    std::string dir = APIDefs->Paths_GetAddonDirectory("horse_pocket");
+    std::string dir = APIDefs->Paths.GetAddonDirectory("horse_pocket");
     std::filesystem::create_directories(dir);
     nlohmann::json j;
     j["mount_ground"]           = g_Config.mountGround;

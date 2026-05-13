@@ -12,16 +12,16 @@ static struct CsInit {
 } s_csInit;
 
 const MountInfo MOUNT_TABLE[] = {
-    { "Raptor",       GB_SpumoniMAM01,    Mumble::EMountIndex::Raptor       },
-    { "Springer",     GB_SpumoniMAM02,    Mumble::EMountIndex::Springer     },
-    { "Skimmer",      GB_SpumoniMAM03,    Mumble::EMountIndex::Skimmer      },
-    { "Jackal",       GB_SpumoniMAM04,    Mumble::EMountIndex::Jackal       },
-    { "Griffon",      GB_SpumoniMAM05,    Mumble::EMountIndex::Griffon      },
-    { "RollerBeetle", GB_SpumoniMAM06,    Mumble::EMountIndex::RollerBeetle },
-    { "Warclaw",      GB_SpumoniMAM07,    Mumble::EMountIndex::Warclaw      },
-    { "Skyscale",     GB_SpumoniMAM08,    Mumble::EMountIndex::Skyscale     },
-    { "Skiff",        GB_MasteryAccess02, Mumble::EMountIndex::Skiff        },
-    { "SiegeTurtle",  GB_SpumoniMAM09,    Mumble::EMountIndex::SiegeTurtle  },
+    { "Raptor",       EGameBinds_SpumoniMAM01,    Mumble::EMountIndex::Raptor       },
+    { "Springer",     EGameBinds_SpumoniMAM02,    Mumble::EMountIndex::Springer     },
+    { "Skimmer",      EGameBinds_SpumoniMAM03,    Mumble::EMountIndex::Skimmer      },
+    { "Jackal",       EGameBinds_SpumoniMAM04,    Mumble::EMountIndex::Jackal       },
+    { "Griffon",      EGameBinds_SpumoniMAM05,    Mumble::EMountIndex::Griffon      },
+    { "RollerBeetle", EGameBinds_SpumoniMAM06,    Mumble::EMountIndex::RollerBeetle },
+    { "Warclaw",      EGameBinds_SpumoniMAM07,    Mumble::EMountIndex::Warclaw      },
+    { "Skyscale",     EGameBinds_SpumoniMAM08,    Mumble::EMountIndex::Skyscale     },
+    { "Skiff",        EGameBinds_MasteryAccess02, Mumble::EMountIndex::Skiff        },
+    { "SiegeTurtle",  EGameBinds_SpumoniMAM09,    Mumble::EMountIndex::SiegeTurtle  },
 };
 const int MOUNT_TABLE_SIZE = sizeof(MOUNT_TABLE) / sizeof(MOUNT_TABLE[0]);
 
@@ -33,8 +33,8 @@ const MountInfo* Mount_FindByName(const std::string& name) {
 }
 
 static void PressMount(EGameBinds bind) {
-    APIDefs->GameBinds_PressAsync(bind);
-    APIDefs->GameBinds_ReleaseAsync(bind);
+    APIDefs->GameBinds.PressAsync(bind);
+    APIDefs->GameBinds.ReleaseAsync(bind);
 }
 
 static bool NeedsCooldownCheck(const std::string& name) {
@@ -44,15 +44,18 @@ static bool NeedsCooldownCheck(const std::string& name) {
 void Mount_OnKeybind() {
     auto* rtapi = g_RTAPI.load();
     if (!rtapi || rtapi->GameBuild == 0) {
-        APIDefs->GUI_SendAlert("Horse Pocket: RTAPI not installed");
+        char buf[64];
+        sprintf(buf, "Keybind: rtapi=%p GameBuild=%u", (void*)rtapi, rtapi ? rtapi->GameBuild : 0u);
+        APIDefs->Log(ELogLevel_WARNING, "HorsePocket", buf);
+        APIDefs->UI.SendAlert("Horse Pocket: RTAPI not installed");
         return;
     }
     if (rtapi->GameState != RTAPI::EGameState::Gameplay) return;
 
     // Dismount if already mounted
     if (rtapi->MountIndex != 0) {
-        APIDefs->GameBinds_PressAsync(GB_SpumoniToggle);
-        APIDefs->GameBinds_ReleaseAsync(GB_SpumoniToggle);
+        APIDefs->GameBinds.PressAsync(EGameBinds_SpumoniToggle);
+        APIDefs->GameBinds.ReleaseAsync(EGameBinds_SpumoniToggle);
         return;
     }
 
