@@ -33,6 +33,23 @@ const MountInfo* Mount_FindByName(const std::string& name) {
     return nullptr;
 }
 
+static bool IsWvWMap() {
+    if (!g_MumbleLink) return false;
+    switch (g_MumbleLink->Context.MapType) {
+        case Mumble::EMapType::WvW_EternalBattlegrounds:
+        case Mumble::EMapType::WvW_BlueBorderlands:
+        case Mumble::EMapType::WvW_GreenBorderlands:
+        case Mumble::EMapType::WvW_RedBorderlands:
+        case Mumble::EMapType::WVW_FortunesVale:
+        case Mumble::EMapType::WvW_ObsidianSanctum:
+        case Mumble::EMapType::WvW_EdgeOfTheMists:
+        case Mumble::EMapType::WvW_Lounge:
+            return true;
+        default:
+            return false;
+    }
+}
+
 static void PressMount(EGameBinds bind) {
     APIDefs->GameBinds.PressAsync(bind);
     APIDefs->GameBinds.ReleaseAsync(bind);
@@ -58,6 +75,13 @@ void Mount_OnKeybind() {
     // Dismount if already mounted
     if (g_MumbleLink->Context.MountIndex != Mumble::EMountIndex::None) {
         PressMount(EGameBinds_SpumoniToggle);
+        return;
+    }
+
+    // WvW: only Warclaw is available — ignore user preferences
+    if (IsWvWMap()) {
+        const MountInfo* warclaw = Mount_FindByName("Warclaw");
+        if (warclaw) PressMount(warclaw->gameBind);
         return;
     }
 
