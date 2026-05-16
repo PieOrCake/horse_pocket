@@ -39,9 +39,14 @@ static bool RenderScenarioRow(const char* label, const char** list, int count,
         for (int i = 0; i < count; i++) {
             if (selection != list[i]) fbList.push_back(list[i]);
         }
-        int fbIdx = 0;
+        int fbIdx = -1;
         for (int i = 0; i < (int)fbList.size(); i++) {
             if (fallback == fbList[i]) { fbIdx = i; break; }
+        }
+        if (fbIdx < 0) {
+            fbIdx = 0;
+            fallback = fbList[0];
+            changed = true;
         }
         std::string fbLabel = std::string("Cooldown fallback##") + label;
         ImGui::Indent();

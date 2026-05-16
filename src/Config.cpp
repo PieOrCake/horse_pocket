@@ -7,7 +7,7 @@
 Config g_Config;
 
 static std::string ConfigPath() {
-    return std::string(APIDefs->Paths.GetAddonDirectory("horse_pocket")) + "/config.json";
+    return std::string(APIDefs->Paths.GetAddonDirectory("HorsePocket")) + "/config.json";
 }
 
 void Config_Save() {

@@ -2,6 +2,7 @@
 #include "Config.h"
 #include "globals.h"
 #include <chrono>
+#include <thread>
 #include <windows.h>
 #include <cstring>
 
@@ -51,8 +52,11 @@ static bool IsWvWMap() {
 }
 
 static void PressMount(EGameBinds bind) {
-    APIDefs->GameBinds.PressAsync(bind);
-    APIDefs->GameBinds.ReleaseAsync(bind);
+    std::thread([bind]() {
+        APIDefs->GameBinds.Press(bind);
+        Sleep(100);
+        APIDefs->GameBinds.Release(bind);
+    }).detach();
 }
 
 // Appends a mount + optional cooldown-fallback to the queue. Returns new size.
@@ -82,6 +86,31 @@ void Mount_OnKeybind() {
     if (IsWvWMap()) {
         const MountInfo* warclaw = Mount_FindByName("Warclaw");
         if (warclaw) PressMount(warclaw->gameBind);
+        return;
+    }
+
+    // In combat: only Warclaw and Skyscale are usable
+    if (g_MumbleLink->Context.IsInCombat) {
+        const MountInfo* warclaw  = Mount_FindByName("Warclaw");
+        const MountInfo* skyscale = Mount_FindByName("Skyscale");
+        EGameBinds combatQueue[2] = {};
+        int combatSize = 0;
+        if (warclaw)  combatQueue[combatSize++] = warclaw->gameBind;
+        if (skyscale) combatQueue[combatSize++] = skyscale->gameBind;
+        if (combatSize == 0) return;
+        PressMount(combatQueue[0]);
+        if (combatSize > 1) {
+            EnterCriticalSection(&s_cs);
+            g_CooldownCheck.active           = true;
+            memcpy(g_CooldownCheck.queue, combatQueue, combatSize * sizeof(EGameBinds));
+            g_CooldownCheck.queueSize        = combatSize;
+            g_CooldownCheck.currentIdx       = 0;
+            g_CooldownCheck.startTime        = std::chrono::steady_clock::now();
+            g_CooldownCheck.airborneStartIdx = -1;
+            g_CooldownCheck.groundBind       = {};
+            g_CooldownCheck.startY           = g_MumbleLink->AvatarPosition.Y;
+            LeaveCriticalSection(&s_cs);
+        }
         return;
     }
 
@@ -172,6 +201,7 @@ void Mount_OnKeybind() {
 
 void Mount_FrameTick() {
     EnterCriticalSection(&s_cs);
+
     if (!g_CooldownCheck.active) {
         LeaveCriticalSection(&s_cs);
         return;
