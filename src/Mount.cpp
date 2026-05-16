@@ -54,7 +54,7 @@ static bool IsWvWMap() {
 static void PressMount(EGameBinds bind) {
     std::thread([bind]() {
         APIDefs->GameBinds.Press(bind);
-        Sleep(100);
+        Sleep(50);
         APIDefs->GameBinds.Release(bind);
     }).detach();
 }

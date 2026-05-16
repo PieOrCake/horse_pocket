@@ -84,7 +84,7 @@ extern "C" __declspec(dllexport) AddonDefinition* GetAddonDef() {
     AddonDef.Signature   = (signed int)0xB07E5EA1;
     AddonDef.APIVersion  = NEXUS_API_VERSION;
     AddonDef.Name        = "Horse Pocket";
-    AddonDef.Version     = { 0, 9, 0, 3 };
+    AddonDef.Version     = { 0, 9, 0, 4 };
     AddonDef.Author      = "PieOrCake.7635";
     AddonDef.Description = "Smart mount selection based on terrain.";
     AddonDef.Load        = AddonLoad;
